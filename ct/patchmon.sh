@@ -3,7 +3,7 @@ source <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxV
 # Copyright (c) 2021-2026 community-scripts ORG
 # Author: vhsdream
 # License: MIT | https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
-# Source: https://github.com/PatcMmon/PatchMon
+# Source: https://github.com/PatchMon/PatchMon
 
 APP="PatchMon"
 var_tags="${var_tags:-monitoring}"
@@ -12,6 +12,7 @@ var_ram="${var_ram:-2048}"
 var_disk="${var_disk:-4}"
 var_os="${var_os:-debian}"
 var_version="${var_version:-13}"
+var_arm64="${var_arm64:-yes}"
 var_unprivileged="${var_unprivileged:-1}"
 
 header_info "$APP"
@@ -29,8 +30,7 @@ function update_script() {
     exit
   fi
 
-  RELEASE="v2.0.1"
-  if check_for_gh_release "PatchMon" "PatchMon/PatchMon" "${RELEASE}"; then
+  if check_for_gh_release "PatchMon" "PatchMon/PatchMon"; then
     msg_info "Stopping Service"
     systemctl stop patchmon-server
     msg_ok "Stopped Service"
@@ -58,12 +58,11 @@ function update_script() {
         -e 's/^NODE_/APP_/' \
         -e '/^SERVER_*/d' \
         -e '/^# API*/,+2d' /opt/patchmon/.env
-      {
-        echo ""
-        echo "SESSION_SECRET=$(openssl rand -hex 64)"
-        echo "AI_ENCRYPTION_KEY=$(openssl rand -hex 64)"
-        echo "AGENT_BINARIES_DIR=/opt/patchmon/agents"
-      } >>/opt/patchmon/.env
+      cat <<EOF >/opt/patchmon/.env
+SESSION_SECRET=$(openssl rand -hex 64)
+AI_ENCRYPTION_KEY=$(openssl rand -hex 64)
+AGENT_BINARIES_DIR=/opt/patchmon/agents
+EOF
       sed -i -e '\|Directory|s|/backend||' \
         -e 's|^ExecStart=.*|ExecStart=/opt/patchmon/patchmon-server|' \
         -e 's|^Environment=NODE_.*|EnvironmentFile=/opt/patchmon/.env|' \
@@ -73,12 +72,17 @@ function update_script() {
       msg_ok "Migration complete!"
     fi
 
-    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "PatchMon" "PatchMon/PatchMon" "singlefile" "${RELEASE}" "/opt/patchmon" "patchmon-server-linux-amd64"
+    create_backup /opt/patchmon/.env
+
+    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "PatchMon" "PatchMon/PatchMon" "singlefile" "latest" "/opt/patchmon" "patchmon-server-linux-$(arch_resolve)"
     mv /opt/patchmon/PatchMon /opt/patchmon/patchmon-server
 
+    restore_backup
+
     msg_info "Fetching PatchMon agent binaries"
+    RELEASE=$(get_latest_github_release "PatchMon/PatchMon")
     [[ ! -d /opt/patchmon/agents ]] && mkdir -p /opt/patchmon/agents
-    FILE_URL="https://github.com/PatchMon/PatchMon/releases/download/${RELEASE}/patchmon-agent-"
+    FILE_URL="https://github.com/PatchMon/PatchMon/releases/download/v${RELEASE}/patchmon-agent-"
     AGENT_NAME=(
       "linux-amd64"
       "linux-arm64"
@@ -111,5 +115,5 @@ description
 
 msg_ok "Completed successfully!\n"
 echo -e "${CREATING}${GN}${APP} setup has been successfully initialized!${CL}"
-echo -e "${INFO}${YW} Access it using the following URL:${CL}"
-echo -e "${TAB}${GATEWAY}${BGN}http://${IP}:3000${CL}"
+echo -e "${INFO}${YW}Access it using the following URL:${CL}"
+echo -e "${GATEWAY}${BGN}http://${IP}:3000${CL}"

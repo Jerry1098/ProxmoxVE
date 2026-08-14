@@ -12,6 +12,7 @@ var_ram="${var_ram:-512}"
 var_disk="${var_disk:-2}"
 var_os="${var_os:-debian}"
 var_version="${var_version:-13}"
+var_arm64="${var_arm64:-yes}"
 var_unprivileged="${var_unprivileged:-1}"
 
 header_info "$APP"
@@ -45,8 +46,11 @@ function update_script() {
 
     msg_info "Updating Heimdall-Dashboard"
     cd /opt/Heimdall
+    sed -i 's/^APP_ENV=.*/APP_ENV=production/' .env
+    rm -f bootstrap/cache/*.php
     export COMPOSER_ALLOW_SUPERUSER=1
-    $STD composer dump-autoload
+    $STD composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+    $STD php artisan optimize:clear
     msg_ok "Updated Heimdall-Dashboard"
 
     msg_info "Restoring Data"
@@ -76,5 +80,5 @@ description
 
 msg_ok "Completed successfully!\n"
 echo -e "${CREATING}${GN}${APP} setup has been successfully initialized!${CL}"
-echo -e "${INFO}${YW} Access it using the following URL:${CL}"
-echo -e "${TAB}${GATEWAY}${BGN}http://${IP}:7990${CL}"
+echo -e "${INFO}${YW}Access it using the following URL:${CL}"
+echo -e "${GATEWAY}${BGN}http://${IP}:7990${CL}"

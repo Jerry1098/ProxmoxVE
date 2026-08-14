@@ -54,7 +54,7 @@ cd /opt
 rm -rf /opt/guacamole-server
 msg_ok "Built Guacamole Server (guacd)"
 
-NODE_VERSION="22" setup_nodejs
+NODE_VERSION="26" setup_nodejs
 fetch_and_deploy_gh_release "termix" "Termix-SSH/Termix" "tarball"
 
 msg_info "Building Frontend"
@@ -85,7 +85,8 @@ mkdir -p /opt/termix/data \
   /opt/termix/nginx \
   /opt/termix/nginx/logs \
   /opt/termix/nginx/cache \
-  /opt/termix/nginx/client_body
+  /opt/termix/nginx/client_body \
+  /opt/termix/db/data
 
 cp -r /opt/termix/dist/* /opt/termix/html/ 2>/dev/null || true
 cp -r /opt/termix/src/locales /opt/termix/html/locales 2>/dev/null || true
@@ -100,9 +101,18 @@ sed -i 's|/app/html|/opt/termix/html|g' /etc/nginx/nginx.conf
 sed -i 's|/app/nginx|/opt/termix/nginx|g' /etc/nginx/nginx.conf
 sed -i 's|listen ${PORT};|listen 80;|g' /etc/nginx/nginx.conf
 
+mkdir -p /tmp/nginx
+echo "d /tmp/nginx 0755 nobody nogroup -" >/etc/tmpfiles.d/nginx-termix.conf
+mkdir -p /etc/systemd/system/nginx.service.d/
+cat >/etc/systemd/system/nginx.service.d/pidfile.conf <<EOF
+[Service]
+PIDFile=/tmp/nginx/nginx.pid
+EOF
+systemctl daemon-reload
 rm -f /etc/nginx/sites-enabled/default
 nginx -t
-systemctl reload nginx
+systemctl enable nginx
+systemctl restart nginx
 msg_ok "Configured Nginx"
 
 msg_info "Creating Service"
@@ -115,7 +125,7 @@ EOF
 
 cat <<EOF >/opt/termix/.env
 NODE_ENV=production
-DATA_DIR=/opt/termix/data
+DATA_DIR=/opt/termix/db/data
 GUACD_HOST=127.0.0.1
 GUACD_PORT=4822
 EOF

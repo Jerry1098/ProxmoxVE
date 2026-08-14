@@ -12,6 +12,7 @@ var_ram="${var_ram:-2048}"
 var_disk="${var_disk:-4}"
 var_os="${var_os:-debian}"
 var_version="${var_version:-13}"
+var_arm64="${var_arm64:-no}"
 var_unprivileged="${var_unprivileged:-1}"
 
 header_info "$APP"
@@ -80,7 +81,7 @@ function update_script() {
     msg_info "Configuring Byparr"
     cd /opt/Byparr
     $STD uv sync --link-mode copy
-    $STD uv run camoufox fetch
+    $STD uv run python -m invisible_playwright fetch
     msg_ok "Configured Byparr"
 
     msg_info "Starting Service"
@@ -97,5 +98,5 @@ description
 
 msg_ok "Completed successfully!\n"
 echo -e "${CREATING}${GN}${APP} setup has been successfully initialized!${CL}"
-echo -e "${INFO}${YW} Access it using the following URL:${CL}"
-echo -e "${TAB}${GATEWAY}${BGN}http://${IP}:8191${CL}"
+echo -e "${INFO}${YW}Access it using the following URL:${CL}"
+echo -e "${GATEWAY}${BGN}http://${IP}:8191${CL}"

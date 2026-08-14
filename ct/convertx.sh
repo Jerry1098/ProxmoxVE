@@ -12,6 +12,7 @@ var_ram="${var_ram:-4096}"
 var_disk="${var_disk:-20}"
 var_os="${var_os:-debian}"
 var_version="${var_version:-13}"
+var_arm64="${var_arm64:-yes}"
 var_unprivileged="${var_unprivileged:-1}"
 var_gpu="${var_gpu:-yes}"
 
@@ -33,21 +34,28 @@ function update_script() {
     systemctl stop convertx
     msg_info "Stopped Service"
 
-    ensure_dependencies libreoffice-writer
+    ensure_dependencies libreoffice-writer dasel graphicsmagick libemail-outlook-message-perl libheif-examples libjxl-tools resvg
 
-    msg_info "Move data-Folder"
-    if [[ -d /opt/convertx/data ]]; then
-      mv /opt/convertx/data /opt/data
+    if ! command -v markitdown &>/dev/null; then
+      setup_uv
+      msg_info "Installing markitdown"
+      export UV_TOOL_BIN_DIR=/usr/local/bin
+      $STD uv tool install "markitdown[all]"
+      msg_ok "Installed markitdown"
     fi
-    msg_ok "Moved data-Folder"
+
+    if ! command -v vtracer &>/dev/null; then
+      fetch_and_deploy_gh_release "vtracer" "visioncortex/vtracer" "prebuild" "0.6.4" "/usr/local/bin" "vtracer-$(arch_resolve "x86_64" "aarch64")-unknown-linux-musl.tar.gz"
+    fi
+
+    create_backup /opt/convertx/data
 
     fetch_and_deploy_gh_release "ConvertX" "C4illin/ConvertX" "tarball" "latest" "/opt/convertx"
 
+    restore_backup
+
     msg_info "Updating ConvertX"
-    if [[ -d /opt/data ]]; then
-      mv /opt/data /opt/convertx/data
-    fi
-    cd /opt/convertx 
+    cd /opt/convertx
     $STD bun install
     msg_ok "Updated ConvertX"
 
@@ -64,5 +72,5 @@ description
 
 msg_ok "Completed successfully!\n"
 echo -e "${CREATING}${GN}${APP} setup has been successfully initialized!${CL}"
-echo -e "${INFO}${YW} Access it using the following URL:${CL}"
-echo -e "${TAB}${GATEWAY}${BGN}http://${IP}:3000${CL}"
+echo -e "${INFO}${YW}Access it using the following URL:${CL}"
+echo -e "${GATEWAY}${BGN}http://${IP}:3000${CL}"

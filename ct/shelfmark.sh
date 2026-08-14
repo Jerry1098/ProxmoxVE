@@ -12,6 +12,7 @@ var_ram="${var_ram:-2048}"
 var_disk="${var_disk:-8}"
 var_os="${var_os:-debian}"
 var_version="${var_version:-13}"
+var_arm64="${var_arm64:-yes}"
 var_unprivileged="${var_unprivileged:-1}"
 
 header_info "$APP"
@@ -30,7 +31,7 @@ function update_script() {
   fi
 
   NODE_VERSION="24" setup_nodejs
-  PYTHON_VERSION="3.12" setup_uv
+  PYTHON_VERSION="3.14" setup_uv
 
   if check_for_gh_release "shelfmark" "calibrain/shelfmark"; then
     msg_info "Stopping Service(s)"
@@ -51,14 +52,16 @@ function update_script() {
       msg_ok "Updated FlareSolverr"
     fi
 
-    cp /opt/shelfmark/start.sh /opt/start.sh.bak
+    create_backup /opt/shelfmark/start.sh
     if command -v chromedriver &>/dev/null; then
       $STD apt remove -y chromium-driver
     fi
     CLEAN_INSTALL=1 fetch_and_deploy_gh_release "shelfmark" "calibrain/shelfmark" "tarball" "latest" "/opt/shelfmark"
+    restore_backup
     RELEASE_VERSION=$(cat "$HOME/.shelfmark")
 
     msg_info "Updating Shelfmark"
+    export VIRTUAL_ENV=/opt/shelfmark/venv
     sed -i "s/^RELEASE_VERSION=.*/RELEASE_VERSION=$RELEASE_VERSION/" /etc/shelfmark/.env
     cd /opt/shelfmark/src/frontend
     $STD npm ci
@@ -67,11 +70,11 @@ function update_script() {
     cd /opt/shelfmark
     $STD uv venv -c ./venv
     $STD source ./venv/bin/activate
-    $STD uv pip install -r ./requirements-base.txt
     if [[ $(sed -n '/_BYPASS=/s/[^=]*=//p' /etc/shelfmark/.env) == "true" ]] && [[ $(sed -n '/BYPASSER=/s/[^=]*=//p' /etc/shelfmark/.env) == "false" ]]; then
-      $STD uv pip install -r ./requirements-shelfmark.txt
+      $STD uv sync --active --locked --no-default-groups --extra browser
+    else
+      $STD uv sync --active --locked --no-default-groups
     fi
-    mv /opt/start.sh.bak /opt/shelfmark/start.sh
     msg_ok "Updated Shelfmark"
 
     msg_info "Starting Service(s)"
@@ -89,5 +92,5 @@ description
 
 msg_ok "Completed successfully!\n"
 echo -e "${CREATING}${GN}${APP} setup has been successfully initialized!${CL}"
-echo -e "${INFO}${YW} Access it using the following URL:${CL}"
-echo -e "${TAB}${GATEWAY}${BGN}http://${IP}:8084${CL}"
+echo -e "${INFO}${YW}Access it using the following URL:${CL}"
+echo -e "${GATEWAY}${BGN}http://${IP}:8084${CL}"

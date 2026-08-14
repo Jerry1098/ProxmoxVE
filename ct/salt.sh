@@ -12,6 +12,7 @@ var_ram="${var_ram:-1024}"
 var_disk="${var_disk:-3}"
 var_os="${var_os:-debian}"
 var_version="${var_version:-13}"
+var_arm64="${var_arm64:-yes}"
 var_unprivileged="${var_unprivileged:-1}"
 
 header_info "$APP"
@@ -35,7 +36,7 @@ function update_script() {
     sed -i "s/^\(Pin: version \).*/\1${RELEASE}/" /etc/apt/preferences.d/salt-pin-1001
     $STD apt update
     $STD apt upgrade -y
-    echo "${RELEASE}" >/~.salt
+    echo "${RELEASE}" >~/.salt
     msg_ok "Updated successfully!"
   fi
   exit
